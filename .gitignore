@@ -1,0 +1,33 @@
+https://github.com/github/gitignore/blob/main/Unity.gitignore
+
+# Unity generated folders
+.utmp/
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+*.log
+
+# Visual Studio / Rider
+.vs/
+.vscode/
+.idea/
+
+# Auto generated files
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+
+# Crash reports
+sysinfo.txt
+
+# Memory captures
+MemoryCaptures/
