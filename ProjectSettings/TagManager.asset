@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - Door
+  - BatasKamera
   layers:
   - Default
   - TransparentFX
@@ -12,9 +13,9 @@ TagManager:
   - Tanah
   - Water
   - UI
-  - 
-  - 
-  - 
+  - Dinding
+  - Atap
+  - BatasKamera
   - 
   - 
   - 

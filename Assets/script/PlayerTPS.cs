@@ -6,275 +6,425 @@ public class PlayerTPS : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float runSpeed = 8f;
+    [SerializeField] private float runSpeed = 10f;
     [SerializeField] private float rotationSpeed = 10f;
 
-    [Header("Jump")]
-    [SerializeField] private float jumpForce = 5f;
-
-    [Header("Gravity")]
+    [Header("Gravity (Keep Grounded)")]
     [SerializeField] private float gravity = -9.81f;
     private float velocityY;
+
+    [Header("Combo Settings")]
+    [SerializeField] private float comboResetTime = 0.5f;
+    private int comboStep = 0;
+    private bool combatInputBuffered = false;
+
+    [Header("Hold Attack Settings")]
+    [SerializeField] private float holdThreshold = 0.4f;
+    private float attackPressedTime;
+    private bool isAttackHolding;
+    private bool attackInputPressed;
+
+    [Header("Cooldowns Management")]
+    private float skill1CDTimer = 0f;
+    private float skill2CDTimer = 0f;
+    private const float SKILL1_MAX_CD = 5f;
+    private const float SKILL2_MAX_CD = 15f;
+
+    [Header("Block Stamina Timers")]
+    private float blockActiveTimer = 0f;
+    private float blockStaminaSecCounter = 0f;
 
     [Header("References")]
     [SerializeField] private Transform cameraTransform;
     [SerializeField] private Animator animator;
-
     [SerializeField] private Transform groundCheck;
     [SerializeField] private float groundDistance = 0.3f;
     [SerializeField] private LayerMask groundMask;
 
     private bool isGrounded;
-
     private CharacterController controller;
     private TPS inputActions;
-
     private Vector2 moveInput;
+    private PlayerStatusManager statusManager;
 
     // INPUT FLAGS
-    private bool jumpPressed;
-
-    private bool isPunching;
-    private bool isPunching2;
-
     private bool ultimatePressed;
-    private bool jumpAttPressed;
-
-    private bool isEmoting;
-
+    private bool skillPressed;
     private bool isBlocking;
+    public bool IsPlayerBlocking => isBlocking;
     private bool isRunning;
 
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        statusManager = GetComponent<PlayerStatusManager>();
         inputActions = new TPS();
     }
 
     private void OnEnable()
     {
         inputActions.Enable();
-
-        // MOVE
         inputActions.Player.Move.performed += OnMove;
         inputActions.Player.Move.canceled += OnMove;
-
-        // JUMP
-        inputActions.Player.Jump.performed += OnJump;
-
-        // PUNCH
-        inputActions.Player.Punch.performed += OnPunch;
-        inputActions.Player.Punch.canceled += OnPunch;
-
-        // PUNCH 2
-        inputActions.Player.Punch2.performed += OnPunch2;
-        inputActions.Player.Punch2.canceled += OnPunch2;
-
-        // ULTIMATE
+        inputActions.Player.Dash.performed += OnDashPressed;
+        inputActions.Player.Punch.performed += OnAttackPerformed;
+        inputActions.Player.Punch.canceled += OnAttackCanceled;
+        inputActions.Player.Skill.performed += OnSkillPressed;
         inputActions.Player.Ultimate.performed += OnUltimate;
-
-        // JUMP ATTACK
-        inputActions.Player.JumpAtt.performed += OnJumpAtt;
-
-        // EMOT
-        inputActions.Player.Emot.performed += OnEmot;
-
-        // BLOCK
         inputActions.Player.Block.performed += OnBlockStart;
         inputActions.Player.Block.canceled += OnBlockEnd;
-
-        // RUN
-        inputActions.Player.Run.performed += OnRunStart;
-        inputActions.Player.Run.canceled += OnRunEnd;
+        inputActions.Player.Run.performed += OnRunToggle;
     }
 
     private void OnDisable()
     {
         inputActions.Player.Move.performed -= OnMove;
         inputActions.Player.Move.canceled -= OnMove;
-
-        inputActions.Player.Jump.performed -= OnJump;
-
-        inputActions.Player.Punch.performed -= OnPunch;
-        inputActions.Player.Punch.canceled -= OnPunch;
-
-        inputActions.Player.Punch2.performed -= OnPunch2;
-        inputActions.Player.Punch2.canceled -= OnPunch2;
-
+        inputActions.Player.Dash.performed -= OnDashPressed;
+        inputActions.Player.Punch.performed -= OnAttackPerformed;
+        inputActions.Player.Punch.canceled -= OnAttackCanceled;
+        inputActions.Player.Skill.performed -= OnSkillPressed;
         inputActions.Player.Ultimate.performed -= OnUltimate;
-
-        inputActions.Player.JumpAtt.performed -= OnJumpAtt;
-
-        inputActions.Player.Emot.performed -= OnEmot;
-
         inputActions.Player.Block.performed -= OnBlockStart;
         inputActions.Player.Block.canceled -= OnBlockEnd;
-
-        inputActions.Player.Run.performed -= OnRunStart;
-        inputActions.Player.Run.canceled -= OnRunEnd;
-
+        inputActions.Player.Run.performed -= OnRunToggle;
         inputActions.Disable();
     }
 
     private void Update()
     {
+        if (Time.timeScale == 0f) return;
+
         CheckGround();
-
         HandleMovement();
-
-        HandleJump();
-
-        HandlePunch();
-
-        HandlePunch2();
-
+        HandleHoldAttackCheck();
+        HandleComboStateCheck();
+        HandleSkill();
         HandleUltimate();
-
-        HandleJumpAttack();
-
-        HandleEmot();
-
-        HandleBlock();
-
+        HandleBlockStaminaConsumption();
+        ProcessCooldownTimers();
         ApplyGravity();
 
-        UpdateAnimator();
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        bool isPunching = stateInfo.IsName("Punch") || stateInfo.IsName("Punch2") || stateInfo.IsName("Punch3");
+
+        bool isDoingAction = isRunning || isBlocking || isPunching ||
+                             stateInfo.IsName("Skill") || stateInfo.IsName("Ultimate") ||
+                             stateInfo.IsName("Attack Press") || IsPerformingLockedAction();
+
+        if (!isDoingAction)
+        {
+            if (moveInput.magnitude > 0.1f)
+            {
+                statusManager.RegenerateStamina(1f);
+            }
+            else
+            {
+                statusManager.RegenerateStamina(3f);
+            }
+        }
     }
 
     private void CheckGround()
     {
-        isGrounded = Physics.CheckSphere(
-            groundCheck.position,
-            groundDistance,
-            groundMask
-        );
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
     }
-
-    // =========================
-    // INPUT CALLBACKS
-    // =========================
 
     private void OnMove(InputAction.CallbackContext context)
     {
         moveInput = context.ReadValue<Vector2>();
     }
 
-    private void OnJump(InputAction.CallbackContext context)
+    private void OnRunToggle(InputAction.CallbackContext context)
     {
-        jumpPressed = true;
-    }
-
-    private void OnPunch(InputAction.CallbackContext context)
-    {
-        if (context.performed)
+        // Hanya aktif lari jika punya stamina tersisa
+        if (statusManager.CurrentStamina > 0)
         {
-            isPunching = true;
-        }
-
-        if (context.canceled)
-        {
-            isPunching = false;
+            isRunning = !isRunning;
         }
     }
 
-    private void OnPunch2(InputAction.CallbackContext context)
+    private void OnDashPressed(InputAction.CallbackContext context)
     {
-        if (context.performed)
+        if (IsPerformingLockedAction()) return;
+
+        if (isRunning && moveInput.magnitude > 0.1f)
         {
-            isPunching2 = true;
+            if (statusManager.UseStamina(10f)) // Konsumsi Role = 10 Stamina
+            {
+                animator.SetTrigger("Role");
+            }
+        }
+        else
+        {
+            if (statusManager.UseStamina(5f)) // Konsumsi Dash = 5 Stamina
+            {
+                animator.SetTrigger("Dash");
+            }
+        }
+    }
+
+    private void OnAttackPerformed(InputAction.CallbackContext context)
+    {
+        if (isBlocking || IsPerformingLockedAction()) return;
+        attackPressedTime = Time.time;
+        attackInputPressed = true;
+    }
+
+    private void OnAttackCanceled(InputAction.CallbackContext context)
+    {
+        attackInputPressed = false;
+
+        if (!isAttackHolding)
+        {
+            combatInputBuffered = true;
+        }
+        else
+        {
+            isAttackHolding = false;
+            animator.SetBool("Attack Press", false);
+        }
+    }
+
+    private void HandleHoldAttackCheck()
+    {
+        // 1. Pemicu awal saat tombol ditahan melewati batas waktu threshold
+        if (attackInputPressed && !isAttackHolding)
+        {
+            if (Time.time - attackPressedTime >= holdThreshold)
+            {
+                isAttackHolding = true;
+                animator.SetBool("Attack Press", true);
+                Debug.Log("Pemicu Press Attack: Menghasilkan 15 Damage!");
+                comboStep = 0;
+                combatInputBuffered = false;
+            }
         }
 
-        if (context.canceled)
+        // 2. LOGIKA BARU: Paksa balik ke Idle jika animasi Press Attack sudah selesai berjalan
+        if (isAttackHolding)
         {
-            isPunching2 = false;
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+
+            // Pastikan nama state di dalam tanda kutip di bawah ini SAMA PERSIS dengan nama State di Animator kamu
+            if (stateInfo.IsName("Attack Press") || stateInfo.IsName("Base Layer.Attack Press"))
+            {
+                // Jika progres animasi sudah mencapai atau melewati 95% (hampir selesai)
+                if (stateInfo.normalizedTime >= 0.95f)
+                {
+                    isAttackHolding = false; // Reset status holding di script
+                    animator.SetBool("Attack Press", false); // Paksa Animator matikan bool agar transisi ke Idle aktif
+                    Debug.Log("Animasi Press Attack selesai, memaksa kembali ke Idle.");
+                }
+            }
         }
+    }
+
+    private void HandleComboStateCheck()
+    {
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+
+        if (stateInfo.IsName("Base Layer.Idle") || stateInfo.IsName("Idle") || stateInfo.tagHash == Animator.StringToHash("Locomotion"))
+        {
+            if (combatInputBuffered)
+            {
+                combatInputBuffered = false;
+                comboStep = 1;
+                animator.SetTrigger("Punch");
+                Debug.Log("Pukulan Kombo 1: Menghasilkan 5 Damage!");
+            }
+            else
+            {
+                comboStep = 0;
+            }
+        }
+        else if (stateInfo.IsName("Punch"))
+        {
+            if (stateInfo.normalizedTime >= 0.5f && combatInputBuffered && comboStep == 1)
+            {
+                combatInputBuffered = false;
+                comboStep = 2;
+                animator.SetTrigger("Punch2");
+                Debug.Log("Pukulan Kombo 2: Menghasilkan 8 Damage!");
+            }
+            else if (stateInfo.normalizedTime >= 1f && !combatInputBuffered && comboStep == 1)
+            {
+                comboStep = 0;
+            }
+        }
+        else if (stateInfo.IsName("Punch2"))
+        {
+            if (stateInfo.normalizedTime >= 0.5f && combatInputBuffered && comboStep == 2)
+            {
+                combatInputBuffered = false;
+                comboStep = 3;
+                animator.SetTrigger("Punch3");
+                Debug.Log("Pukulan Kombo 3: Menghasilkan 10 Damage!");
+            }
+            else if (stateInfo.normalizedTime >= 1f && !combatInputBuffered && comboStep == 2)
+            {
+                comboStep = 0;
+            }
+        }
+        else if (stateInfo.IsName("Punch3"))
+        {
+            if (stateInfo.normalizedTime >= 0.9f)
+            {
+                comboStep = 0;
+                combatInputBuffered = false;
+            }
+        }
+    }
+
+    private void OnSkillPressed(InputAction.CallbackContext context)
+    {
+        if (IsPerformingLockedAction() || isBlocking || skill1CDTimer > 0) return;
+        skillPressed = true;
+    }
+
+    private void HandleSkill()
+    {
+        if (skillPressed)
+        {
+            animator.SetTrigger("Skill");
+            Debug.Log("Skill 1 Aktif: Menghasilkan 25 Damage!");
+            skill1CDTimer = SKILL1_MAX_CD; // Set CD 5 detik
+        }
+        skillPressed = false;
     }
 
     private void OnUltimate(InputAction.CallbackContext context)
     {
+        if (IsPerformingLockedAction() || isBlocking || skill2CDTimer > 0) return;
         ultimatePressed = true;
     }
 
-    private void OnJumpAtt(InputAction.CallbackContext context)
+    private void HandleUltimate()
     {
-        jumpAttPressed = true;
-    }
-
-    private void OnEmot(InputAction.CallbackContext context)
-    {
-        if (context.performed)
+        if (ultimatePressed)
         {
-            isEmoting = true;
+            animator.SetTrigger("Ultimate");
+            Debug.Log("Skill Ultimate Aktif: Menghasilkan 50 Damage!");
+            skill2CDTimer = SKILL2_MAX_CD; // Set CD 15 detik
         }
+        ultimatePressed = false;
     }
 
+    // BLOCK INPUT & TIMING STAMINA MANAGEMENT
     private void OnBlockStart(InputAction.CallbackContext context)
     {
+        if (IsPerformingLockedAction() || statusManager.IsBlockBroken) return;
+
+        // Klik awal mengonsumsi 5 stamina langsung
+        statusManager.ReduceStaminaDirect(5f);
         isBlocking = true;
+        blockActiveTimer = 0f;
+        blockStaminaSecCounter = 0f;
     }
 
     private void OnBlockEnd(InputAction.CallbackContext context)
     {
         isBlocking = false;
+        animator.SetBool("isBlock", false);
+        statusManager.ResetBlockSustainedDamage();
     }
 
-    private void OnRunStart(InputAction.CallbackContext context)
+    private void HandleBlockStaminaConsumption()
     {
-        isRunning = true;
+        if (isBlocking)
+        {
+            // Jika ditengah jalan block hancur/broken akibat diserang melebihi 50 damage
+            if (statusManager.IsBlockBroken)
+            {
+                isBlocking = false;
+                animator.SetBool("isBlock", false);
+                return;
+            }
+
+            animator.SetBool("isBlock", true);
+            blockActiveTimer += Time.deltaTime;
+
+            // Masuk hitungan detik setelah melewati batas threshold 3 detik awal
+            if (blockActiveTimer >= 3f)
+            {
+                blockStaminaSecCounter += Time.deltaTime;
+                if (blockStaminaSecCounter >= 1f)
+                {
+                    statusManager.ReduceStaminaDirect(3f); // Potong 3 stamina tiap detiknya
+                    blockStaminaSecCounter = 0f;
+                }
+            }
+
+            // Jika stamina habis total saat menahan block, otomatis paksa lepas block
+            if (statusManager.CurrentStamina <= 0)
+            {
+                isBlocking = false;
+                animator.SetBool("isBlock", false);
+            }
+        }
     }
 
-    private void OnRunEnd(InputAction.CallbackContext context)
+    private void ProcessCooldownTimers()
     {
-        isRunning = false;
+        if (skill1CDTimer > 0)
+        {
+            skill1CDTimer -= Time.deltaTime;
+            statusManager.UpdateSkillCDUI(skill1CDTimer, SKILL1_MAX_CD, 1);
+        }
+        if (skill2CDTimer > 0)
+        {
+            skill2CDTimer -= Time.deltaTime;
+            statusManager.UpdateSkillCDUI(skill2CDTimer, SKILL2_MAX_CD, 2);
+        }
     }
-
-    // =========================
-    // MOVEMENT
-    // =========================
 
     private void HandleMovement()
     {
-        Vector3 move = new Vector3(moveInput.x, 0, moveInput.y);
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        bool isDashing = stateInfo.IsName("Dash");
+        bool isRolling = stateInfo.IsName("Role");
 
+        if (isDashing || isRolling)
+        {
+            animator.SetBool("isWalk", false);
+            animator.SetBool("isRun", false);
+            float dashSpeed = isRolling ? 9f : 7f;
+            Vector3 forwardMove = transform.forward * dashSpeed;
+            controller.Move(forwardMove * Time.deltaTime);
+            return;
+        }
+
+        bool isPunching = stateInfo.IsName("Punch") || stateInfo.IsName("Punch2") || stateInfo.IsName("Punch3");
+        if (isBlocking || stateInfo.IsName("Skill") || stateInfo.IsName("Ultimate") || stateInfo.IsName("Attack Press") || isPunching)
+        {
+            animator.SetBool("isWalk", false);
+            animator.SetBool("isRun", false);
+            return;
+        }
+
+        Vector3 move = new Vector3(moveInput.x, 0, moveInput.y);
         if (move.magnitude > 0.1f)
         {
+            // Jika sedang berlari, kurangi stamina 5 per detik secara konstan
+            if (isRunning)
+            {
+                statusManager.ReduceStaminaDirect(5f * Time.deltaTime);
+                if (statusManager.CurrentStamina <= 0) isRunning = false; // Berhenti lari jika lelah
+            }
+
             Vector3 camForward = cameraTransform.forward;
             Vector3 camRight = cameraTransform.right;
+            camForward.y = 0; camRight.y = 0;
 
-            camForward.y = 0;
-            camRight.y = 0;
+            Vector3 moveDirection = camForward * move.z + camRight * move.x;
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
 
-            Vector3 moveDirection =
-                camForward * move.z +
-                camRight * move.x;
+            float currentSpeed = isRunning ? runSpeed : moveSpeed;
+            controller.Move(moveDirection.normalized * currentSpeed * Time.deltaTime);
 
-            Quaternion targetRotation =
-                Quaternion.LookRotation(moveDirection);
-
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                rotationSpeed * Time.deltaTime
-            );
-
-            float currentSpeed =
-                isRunning ? runSpeed : moveSpeed;
-
-            controller.Move(
-                moveDirection.normalized *
-                currentSpeed *
-                Time.deltaTime
-            );
-
-            animator.SetBool("isWalk", true);
+            animator.SetBool("isWalk", !isRunning);
             animator.SetBool("isRun", isRunning);
-
-            // BATALKAN EMOTE SAAT GERAK
-            if (isEmoting)
-            {
-                isEmoting = false;
-                animator.SetBool("isEmoting", false);
-            }
         }
         else
         {
@@ -283,112 +433,17 @@ public class PlayerTPS : MonoBehaviour
         }
     }
 
-    // =========================
-    // JUMP
-    // =========================
-
-    private void HandleJump()
-    {
-        if (jumpPressed && isGrounded)
-        {
-            velocityY =
-                Mathf.Sqrt(jumpForce * -2f * gravity);
-
-            animator.SetTrigger("jump");
-        }
-
-        jumpPressed = false;
-    }
-
-    // =========================
-    // PUNCH
-    // =========================
-
-    private void HandlePunch()
-    {
-        animator.SetBool("isPunch", isPunching);
-    }
-
-    // =========================
-    // PUNCH 2
-    // =========================
-
-    private void HandlePunch2()
-    {
-        animator.SetBool("isPunch2", isPunching2);
-    }
-
-    // =========================
-    // ULTIMATE
-    // =========================
-
-    private void HandleUltimate()
-    {
-        if (ultimatePressed)
-        {
-            animator.SetTrigger("ultimate");
-        }
-
-        ultimatePressed = false;
-    }
-
-    // =========================
-    // JUMP ATTACK
-    // =========================
-
-    private void HandleJumpAttack()
-    {
-        if (jumpAttPressed)
-        {
-            animator.SetTrigger("jumpatt");
-        }
-
-        jumpAttPressed = false;
-    }
-
-    // =========================
-    // EMOT
-    // =========================
-
-    private void HandleEmot()
-    {
-        animator.SetBool("isEmoting", isEmoting);
-    }
-
-    // =========================
-    // BLOCK
-    // =========================
-
-    private void HandleBlock()
-    {
-        animator.SetBool("isBlock", isBlocking);
-    }
-
-    // =========================
-    // GRAVITY
-    // =========================
-
     private void ApplyGravity()
     {
-        if (isGrounded && velocityY < 0)
-        {
-            velocityY = -2f;
-        }
-
+        if (isGrounded && velocityY < 0) velocityY = -2f;
         velocityY += gravity * Time.deltaTime;
-
-        Vector3 gravityMove =
-            new Vector3(0, velocityY, 0);
-
+        Vector3 gravityMove = new Vector3(0, velocityY, 0);
         controller.Move(gravityMove * Time.deltaTime);
     }
 
-    // =========================
-    // ANIMATOR
-    // =========================
-
-    private void UpdateAnimator()
+    private bool IsPerformingLockedAction()
     {
-        animator.SetBool("isGrounded", isGrounded);
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        return stateInfo.IsName("Skill") || stateInfo.IsName("Ultimate") || stateInfo.IsName("Dash") || stateInfo.IsName("Role");
     }
 }

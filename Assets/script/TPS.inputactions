@@ -25,15 +25,6 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Jump",
-                    "type": "Button",
-                    "id": "3dffed4c-9c4f-477f-a795-bea2e67a394d",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": true
-                },
-                {
                     "name": "Punch",
                     "type": "Button",
                     "id": "1e167a79-8548-4b62-bb01-9478c4b1eee3",
@@ -43,7 +34,7 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Punch2",
+                    "name": "Skill",
                     "type": "Button",
                     "id": "b7aeac79-beb9-4a24-8770-c488252285cb",
                     "expectedControlType": "",
@@ -61,24 +52,6 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Run",
-                    "type": "Button",
-                    "id": "1a12cd14-1d11-4391-87bd-c128f5c2bd3c",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
-                    "name": "JumpAtt",
-                    "type": "Button",
-                    "id": "07a837d0-aad9-4ecd-a2cb-25d6c5a82242",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Block",
                     "type": "Button",
                     "id": "5ed7264f-4e99-43ba-bf93-2324b35dc92e",
@@ -88,9 +61,18 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Emot",
+                    "name": "Run",
                     "type": "Button",
-                    "id": "f8e7af5c-bd41-45f7-97c1-f64823a7659d",
+                    "id": "1a12cd14-1d11-4391-87bd-c128f5c2bd3c",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Dash",
+                    "type": "Button",
+                    "id": "fde6c42a-e68b-4903-869d-42cda2da9c09",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -111,17 +93,6 @@
                 },
                 {
                     "name": "",
-                    "id": "d8e5c229-0bb6-4252-a11d-a7fa1964690d",
-                    "path": "<Gamepad>/buttonSouth",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Jump",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "4985ab13-012a-461a-b620-51e36ef8ec48",
                     "path": "<Gamepad>/buttonWest",
                     "interactions": "",
@@ -134,7 +105,7 @@
                 {
                     "name": "",
                     "id": "086875ee-cd34-46b1-b463-d550d8eb7a1b",
-                    "path": "<Gamepad>/leftShoulder",
+                    "path": "<Gamepad>/buttonSouth",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -149,7 +120,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Punch2",
+                    "action": "Skill",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -177,34 +148,23 @@
                 },
                 {
                     "name": "",
-                    "id": "1fecf1a0-ca84-48b2-938c-914c8393a0bf",
-                    "path": "<Gamepad>/rightTrigger",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "JumpAtt",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "272142f4-c6ba-4d65-b81c-9619ddb17521",
-                    "path": "<Gamepad>/leftTrigger",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Emot",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "9924bdd4-4285-4c0e-8940-ef478f316af5",
                     "path": "<Gamepad>/leftStick",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
                     "action": "Move",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "76edd04a-9426-41b9-9414-1a5e16b8afc7",
+                    "path": "<Gamepad>/leftShoulder",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Dash",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

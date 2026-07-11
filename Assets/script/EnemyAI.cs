@@ -30,18 +30,18 @@ public class EnemyAI : MonoBehaviour
             return;
 
         float distance =
-            Vector3.Distance(transform.position, player.position);
+          Vector3.Distance(transform.position, player.position);
 
-        // Tidak mendeteksi player
-        if (distance > detectRange)
+        // Tidak mendeteksi player
+        if (distance > detectRange)
         {
             agent.isStopped = true;
             anim.SetBool("isWalking", false);
             return;
         }
 
-        // Mengejar player
-        if (distance > attackRange)
+        // Mengejar player
+        if (distance > attackRange)
         {
             agent.isStopped = false;
             agent.SetDestination(player.position);
@@ -52,18 +52,18 @@ public class EnemyAI : MonoBehaviour
         {
             agent.isStopped = true;
             anim.SetBool("isWalking", false);
-            
+
             Vector3 lookPos =
-                player.position - transform.position;
+              player.position - transform.position;
 
             lookPos.y = 0;
 
             transform.rotation =
-                Quaternion.Slerp(
-                    transform.rotation,
-                    Quaternion.LookRotation(lookPos),
-                    Time.deltaTime * 5f
-                );
+              Quaternion.Slerp(
+                transform.rotation,
+                Quaternion.LookRotation(lookPos),
+                Time.deltaTime * 5f
+              );
 
             Attack();
         }
