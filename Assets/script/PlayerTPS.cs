@@ -96,6 +96,24 @@ public class PlayerTPS : MonoBehaviour
         if (Time.timeScale == 0f) return;
 
         CheckGround();
+
+        // 1. KUNCI UTAMA: Jika player sedang mati atau terkena Hit (CanAction == false),
+        // matikan paksa pergerakan, bersihkan input buff, dan abaikan fungsi aksi di bawahnya.
+        if (statusManager != null && !statusManager.CanAction)
+        {
+            animator.SetBool("isWalk", false);
+            animator.SetBool("isRun", false);
+            isRunning = false;
+            isBlocking = false;
+            animator.SetBool("isBlock", false);
+            combatInputBuffered = false;
+            attackInputPressed = false;
+            isAttackHolding = false;
+
+            ApplyGravity(); // Gravitasi tetap berjalan agar tidak melayang saat kena hit
+            return;
+        }
+
         HandleMovement();
         HandleHoldAttackCheck();
         HandleComboStateCheck();
@@ -132,12 +150,18 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnMove(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction)
+        {
+            moveInput = Vector2.zero;
+            return;
+        }
         moveInput = context.ReadValue<Vector2>();
     }
 
     private void OnRunToggle(InputAction.CallbackContext context)
     {
-        // Hanya aktif lari jika punya stamina tersisa
+        if (statusManager != null && !statusManager.CanAction) return;
+
         if (statusManager.CurrentStamina > 0)
         {
             isRunning = !isRunning;
@@ -146,18 +170,19 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnDashPressed(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
         if (IsPerformingLockedAction()) return;
 
         if (isRunning && moveInput.magnitude > 0.1f)
         {
-            if (statusManager.UseStamina(10f)) // Konsumsi Role = 10 Stamina
+            if (statusManager.UseStamina(10f))
             {
                 animator.SetTrigger("Role");
             }
         }
         else
         {
-            if (statusManager.UseStamina(5f)) // Konsumsi Dash = 5 Stamina
+            if (statusManager.UseStamina(5f))
             {
                 animator.SetTrigger("Dash");
             }
@@ -166,13 +191,17 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnAttackPerformed(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
         if (isBlocking || IsPerformingLockedAction()) return;
+
         attackPressedTime = Time.time;
         attackInputPressed = true;
     }
 
     private void OnAttackCanceled(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
+
         attackInputPressed = false;
 
         if (!isAttackHolding)
@@ -188,7 +217,6 @@ public class PlayerTPS : MonoBehaviour
 
     private void HandleHoldAttackCheck()
     {
-        // 1. Pemicu awal saat tombol ditahan melewati batas waktu threshold
         if (attackInputPressed && !isAttackHolding)
         {
             if (Time.time - attackPressedTime >= holdThreshold)
@@ -196,24 +224,24 @@ public class PlayerTPS : MonoBehaviour
                 isAttackHolding = true;
                 animator.SetBool("Attack Press", true);
                 Debug.Log("Pemicu Press Attack: Menghasilkan 15 Damage!");
+
+                DealDamageInFront(15f);
+
                 comboStep = 0;
                 combatInputBuffered = false;
             }
         }
 
-        // 2. LOGIKA BARU: Paksa balik ke Idle jika animasi Press Attack sudah selesai berjalan
         if (isAttackHolding)
         {
             AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
 
-            // Pastikan nama state di dalam tanda kutip di bawah ini SAMA PERSIS dengan nama State di Animator kamu
             if (stateInfo.IsName("Attack Press") || stateInfo.IsName("Base Layer.Attack Press"))
             {
-                // Jika progres animasi sudah mencapai atau melewati 95% (hampir selesai)
                 if (stateInfo.normalizedTime >= 0.95f)
                 {
-                    isAttackHolding = false; // Reset status holding di script
-                    animator.SetBool("Attack Press", false); // Paksa Animator matikan bool agar transisi ke Idle aktif
+                    isAttackHolding = false;
+                    animator.SetBool("Attack Press", false);
                     Debug.Log("Animasi Press Attack selesai, memaksa kembali ke Idle.");
                 }
             }
@@ -232,6 +260,9 @@ public class PlayerTPS : MonoBehaviour
                 comboStep = 1;
                 animator.SetTrigger("Punch");
                 Debug.Log("Pukulan Kombo 1: Menghasilkan 5 Damage!");
+
+                // --- TAMBAHKAN INI ---
+                DealDamageInFront(5f);
             }
             else
             {
@@ -246,6 +277,9 @@ public class PlayerTPS : MonoBehaviour
                 comboStep = 2;
                 animator.SetTrigger("Punch2");
                 Debug.Log("Pukulan Kombo 2: Menghasilkan 8 Damage!");
+
+                // --- TAMBAHKAN INI ---
+                DealDamageInFront(8f);
             }
             else if (stateInfo.normalizedTime >= 1f && !combatInputBuffered && comboStep == 1)
             {
@@ -260,6 +294,9 @@ public class PlayerTPS : MonoBehaviour
                 comboStep = 3;
                 animator.SetTrigger("Punch3");
                 Debug.Log("Pukulan Kombo 3: Menghasilkan 10 Damage!");
+
+                // --- TAMBAHKAN INI ---
+                DealDamageInFront(10f);
             }
             else if (stateInfo.normalizedTime >= 1f && !combatInputBuffered && comboStep == 2)
             {
@@ -278,7 +315,9 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnSkillPressed(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
         if (IsPerformingLockedAction() || isBlocking || skill1CDTimer > 0) return;
+
         skillPressed = true;
     }
 
@@ -288,14 +327,20 @@ public class PlayerTPS : MonoBehaviour
         {
             animator.SetTrigger("Skill");
             Debug.Log("Skill 1 Aktif: Menghasilkan 25 Damage!");
-            skill1CDTimer = SKILL1_MAX_CD; // Set CD 5 detik
+
+            // --- TAMBAHKAN INI ---
+            DealDamageInFront(25f);
+
+            skill1CDTimer = SKILL1_MAX_CD;
         }
         skillPressed = false;
     }
 
     private void OnUltimate(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
         if (IsPerformingLockedAction() || isBlocking || skill2CDTimer > 0) return;
+
         ultimatePressed = true;
     }
 
@@ -305,17 +350,20 @@ public class PlayerTPS : MonoBehaviour
         {
             animator.SetTrigger("Ultimate");
             Debug.Log("Skill Ultimate Aktif: Menghasilkan 50 Damage!");
-            skill2CDTimer = SKILL2_MAX_CD; // Set CD 15 detik
+
+            // --- TAMBAHKAN INI ---
+            DealDamageInFront(50f);
+
+            skill2CDTimer = SKILL2_MAX_CD;
         }
         ultimatePressed = false;
     }
 
-    // BLOCK INPUT & TIMING STAMINA MANAGEMENT
     private void OnBlockStart(InputAction.CallbackContext context)
     {
+        if (statusManager != null && !statusManager.CanAction) return;
         if (IsPerformingLockedAction() || statusManager.IsBlockBroken) return;
 
-        // Klik awal mengonsumsi 5 stamina langsung
         statusManager.ReduceStaminaDirect(5f);
         isBlocking = true;
         blockActiveTimer = 0f;
@@ -324,16 +372,16 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnBlockEnd(InputAction.CallbackContext context)
     {
+        // Tetap izinkan lepas block kapan saja demi keamanan state
         isBlocking = false;
         animator.SetBool("isBlock", false);
-        statusManager.ResetBlockSustainedDamage();
+        if (statusManager != null) statusManager.ResetBlockSustainedDamage();
     }
 
     private void HandleBlockStaminaConsumption()
     {
         if (isBlocking)
         {
-            // Jika ditengah jalan block hancur/broken akibat diserang melebihi 50 damage
             if (statusManager.IsBlockBroken)
             {
                 isBlocking = false;
@@ -344,18 +392,16 @@ public class PlayerTPS : MonoBehaviour
             animator.SetBool("isBlock", true);
             blockActiveTimer += Time.deltaTime;
 
-            // Masuk hitungan detik setelah melewati batas threshold 3 detik awal
             if (blockActiveTimer >= 3f)
             {
                 blockStaminaSecCounter += Time.deltaTime;
                 if (blockStaminaSecCounter >= 1f)
                 {
-                    statusManager.ReduceStaminaDirect(3f); // Potong 3 stamina tiap detiknya
+                    statusManager.ReduceStaminaDirect(3f);
                     blockStaminaSecCounter = 0f;
                 }
             }
 
-            // Jika stamina habis total saat menahan block, otomatis paksa lepas block
             if (statusManager.CurrentStamina <= 0)
             {
                 isBlocking = false;
@@ -405,11 +451,10 @@ public class PlayerTPS : MonoBehaviour
         Vector3 move = new Vector3(moveInput.x, 0, moveInput.y);
         if (move.magnitude > 0.1f)
         {
-            // Jika sedang berlari, kurangi stamina 5 per detik secara konstan
             if (isRunning)
             {
                 statusManager.ReduceStaminaDirect(5f * Time.deltaTime);
-                if (statusManager.CurrentStamina <= 0) isRunning = false; // Berhenti lari jika lelah
+                if (statusManager.CurrentStamina <= 0) isRunning = false;
             }
 
             Vector3 camForward = cameraTransform.forward;
@@ -444,6 +489,42 @@ public class PlayerTPS : MonoBehaviour
     private bool IsPerformingLockedAction()
     {
         AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-        return stateInfo.IsName("Skill") || stateInfo.IsName("Ultimate") || stateInfo.IsName("Dash") || stateInfo.IsName("Role");
+
+        // 2. TAMBAHKAN PENGECEKAN ANIMASI HIT DI SINI:
+        // Jika sedang memutar animasi hit, sistem menganggap player sedang mengunci aksi
+        return stateInfo.IsName("Skill") ||
+               stateInfo.IsName("Ultimate") ||
+               stateInfo.IsName("Dash") ||
+               stateInfo.IsName("Role") ||
+               stateInfo.IsName("Hit Body") ||
+               stateInfo.IsName("Head Hit") ||
+               stateInfo.IsName("Hit Back") ||
+               stateInfo.IsName("Knockdown") ||
+               stateInfo.IsName("StandUp");
+    }
+
+    private void DealDamageInFront(float damageAmount)
+    {
+        Vector3 attackCenter = transform.position + transform.forward * 1.5f;
+        Collider[] hitColliders = Physics.OverlapSphere(attackCenter, 2f);
+
+        foreach (Collider hit in hitColliders)
+        {
+            // 1. Cek apakah Mutant
+            MutantAI mutant = hit.GetComponent<MutantAI>();
+            if (mutant != null)
+            {
+                mutant.TakeDamageFromPlayer(damageAmount);
+                return; // Keluar agar tidak memukul objek lain di frame yang sama
+            }
+
+            // 2. Cek apakah Police (TAMBAHAN BARU)
+            PoliceAI police = hit.GetComponent<PoliceAI>();
+            if (police != null)
+            {
+                police.TakeDamageFromPlayer(damageAmount);
+                return;
+            }
+        }
     }
 }
