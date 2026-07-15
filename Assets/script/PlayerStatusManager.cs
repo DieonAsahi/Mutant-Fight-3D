@@ -391,4 +391,19 @@ public class PlayerStatusManager : MonoBehaviour
         if (healthText != null) healthText.text = Mathf.CeilToInt(currentHealth) + "/" + maxHealth;
         if (staminaText != null) staminaText.text = Mathf.CeilToInt(currentStamina) + "/" + maxStamina;
     }
+
+    // Fungsi public agar bisa dipanggil oleh HealthCube dari luar
+    public void HealToFull()
+    {
+        // Isi darah saat ini dengan batas maksimal (100f)
+        currentHealth = maxHealth;
+
+        // Panggil fungsi update UI darah yang ada di script player kamu
+        // Berdasarkan tab VS Code-mu, namanya kemungkinan berkaitan dengan UI. 
+        // Coba cek apakah ada fungsi bernama UpdateHealthUI() atau semacamnya di bawah.
+        // Contoh:
+        // UpdateHealthUI(); 
+
+        Debug.Log("Darah Player berhasil dipulihkan lewat PlayerStatusManager!");
+    }
 }

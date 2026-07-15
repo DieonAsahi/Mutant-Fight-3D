@@ -78,17 +78,21 @@ public class PlayerTPS : MonoBehaviour
 
     private void OnDisable()
     {
-        inputActions.Player.Move.performed -= OnMove;
-        inputActions.Player.Move.canceled -= OnMove;
-        inputActions.Player.Dash.performed -= OnDashPressed;
-        inputActions.Player.Punch.performed -= OnAttackPerformed;
-        inputActions.Player.Punch.canceled -= OnAttackCanceled;
-        inputActions.Player.Skill.performed -= OnSkillPressed;
-        inputActions.Player.Ultimate.performed -= OnUltimate;
-        inputActions.Player.Block.performed -= OnBlockStart;
-        inputActions.Player.Block.canceled -= OnBlockEnd;
-        inputActions.Player.Run.performed -= OnRunToggle;
-        inputActions.Disable();
+        // BUNGKUS SEMUA KODE DI DALAM ONDISABLE DENGAN PENGECEKAN INI
+        if (inputActions != null)
+        {
+            inputActions.Disable();
+            inputActions.Player.Move.performed -= OnMove;
+            inputActions.Player.Move.canceled -= OnMove;
+            inputActions.Player.Dash.performed -= OnDashPressed;
+            inputActions.Player.Punch.performed -= OnAttackPerformed;
+            inputActions.Player.Punch.canceled -= OnAttackCanceled;
+            inputActions.Player.Skill.performed -= OnSkillPressed;
+            inputActions.Player.Ultimate.performed -= OnUltimate;
+            inputActions.Player.Block.performed -= OnBlockStart;
+            inputActions.Player.Block.canceled -= OnBlockEnd;
+            inputActions.Player.Run.performed -= OnRunToggle;
+        }
     }
 
     private void Update()
@@ -518,12 +522,20 @@ public class PlayerTPS : MonoBehaviour
                 return; // Keluar agar tidak memukul objek lain di frame yang sama
             }
 
-            // 2. Cek apakah Police (TAMBAHAN BARU)
+            // 2. Cek apakah Police
             PoliceAI police = hit.GetComponent<PoliceAI>();
             if (police != null)
             {
                 police.TakeDamageFromPlayer(damageAmount);
                 return;
+            }
+
+            // 3. Cek apakah Boss (Doctore) - TAMBAHAN BARU
+            BossAI boss = hit.GetComponent<BossAI>();
+            if (boss != null)
+            {
+                boss.TakeDamageFromPlayer(damageAmount);
+                return; // Keluar setelah damage masuk ke Bos
             }
         }
     }

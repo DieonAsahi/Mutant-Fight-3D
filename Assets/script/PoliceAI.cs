@@ -116,7 +116,11 @@ public class PoliceAI : MonoBehaviour
 
         if (playerStatus != null)
         {
-            playerStatus.TakeDamage(damageAmount, false, "Normal", "Front");
+            bool playerIsBlocking = false;
+
+            playerStatus.TakeDamage(damageAmount, playerIsBlocking, "Normal", "Front");
+
+            Debug.Log($"Polisi berhasil memukul Player! Damage: {damageAmount}");
         }
 
         yield return new WaitForSeconds(attackCooldown);
@@ -168,10 +172,18 @@ public class PoliceAI : MonoBehaviour
         if (anim != null)
             anim.Play("Daying");
 
-        // GANTI DI SINI
+        // 1. Matikan script-nya TERLEBIH DAHULU agar tidak ikut terhitung
+        this.enabled = false;
+
         if (PoliceUIManager.Instance != null)
+        {
             PoliceUIManager.Instance.ClearActivePolice(this);
 
+            // 2. Baru panggil pengecekan setelah script dipastikan mati
+            PoliceUIManager.Instance.CheckRemainingPolice();
+        }
+
+        // Hancurkan objek setelah animasi selesai
         Destroy(gameObject, 2.5f);
     }
 

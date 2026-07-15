@@ -4,29 +4,56 @@ public class MenuManager : MonoBehaviour
 {
     [Header("UI Panels")]
     [SerializeField] private GameObject panelMenu;
+    [SerializeField] private GameObject panelWin; // Tambahan slot untuk menyeret Panel Win di Inspector
 
     private bool isPaused = false;
 
     private void Start()
     {
-        // Pastikan saat game mulai, panel menu tertutup dan game jalan
+        // Pastikan saat game mulai, semua panel tertutup dan game jalan
         if (panelMenu != null)
         {
             panelMenu.SetActive(false);
         }
+
+        if (panelWin != null)
+        {
+            panelWin.SetActive(false); // Memastikan Panel Win tidak muncul di awal game
+        }
+
         Time.timeScale = 1f;
     }
 
-    // Fungsi untuk membuka Menu dan Pause Game
+    // Fungsi Tambahan: Dipanggil otomatis oleh PoliceUIManager saat semua polisi mati
+    public void OpenWinPanel()
+    {
+        if (panelWin != null)
+        {
+            panelWin.SetActive(true); // Memunculkan Panel Win (Misi Selesai)
+            Time.timeScale = 0f;      // Hentikan pergerakan/waktu game di background
+            isPaused = true;
+
+            // Buka kunci kursor mouse agar bisa klik tombol Next Level / Main Menu
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            Debug.Log("Panel Win berhasil ditampilkan melalui MenuManager.");
+        }
+        else
+        {
+            Debug.LogError("Panel Win belum dimasukkan ke slot Inspector MenuManager!");
+        }
+    }
+
+    // Fungsi untuk membuka Menu dan Pause Game biasa
     public void OpenMenu()
     {
         if (panelMenu != null)
         {
             panelMenu.SetActive(true);
-            Time.timeScale = 0f; // Membekukan waktu game (NPC, animasi, pergerakan berhenti)
+            Time.timeScale = 0f;
             isPaused = true;
 
-            // Opsional: Buka kunci kursor mouse agar bisa klik UI jika game kamu tipe TPS lock cursor
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
@@ -38,10 +65,9 @@ public class MenuManager : MonoBehaviour
         if (panelMenu != null)
         {
             panelMenu.SetActive(false);
-            Time.timeScale = 1f; // Mengembalikan waktu game ke normal
+            Time.timeScale = 1f;
             isPaused = false;
 
-            // Opsional: Kunci kembali kursor mouse jika memakai mode TPS
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
